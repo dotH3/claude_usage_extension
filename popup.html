@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Claude Usage</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #f5f0eb;
+      --bg-card:   #ede8e2;
+      --border:    #d6cfc8;
+      --text:      #1a1a1a;
+      --muted:     #7a7068;
+      --accent:    #c96442;   /* coral — Claude brand */
+      --warn:      #b45309;
+      --ok:        #2d6a4f;
+      --prompt:    #c96442;
+    }
+
+    body {
+      width: 310px;
+      background: var(--bg);
+      color: var(--text);
+      font: 12px/1.6 'JetBrains Mono', 'Fira Mono', 'Cascadia Code', monospace;
+      padding: 0;
+    }
+
+    /* ── Header bar ── */
+    #header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    #header .logo {
+      color: var(--accent);
+      font-size: 16px;
+      line-height: 1;
+      /* ASCII asterisk styled like Claude's starburst */
+      font-weight: 700;
+      letter-spacing: -1px;
+    }
+    #header .title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: .04em;
+    }
+    #header .subtitle {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    /* ── Shell prompt area ── */
+    #shell {
+      padding: 10px 14px 4px;
+    }
+    .prompt-line {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .prompt-line .ps1 { color: var(--prompt); font-weight: 700; }
+    .prompt-line .cmd { color: var(--text); }
+
+    /* ── Usage blocks ── */
+    .window {
+      margin-bottom: 10px;
+      padding: 8px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border);
+    }
+    .window.critical { border-left-color: #c0392b; }
+    .window.warn     { border-left-color: #b45309; }
+    .window.ok       { border-left-color: #2d6a4f; }
+
+    .window-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+    .window-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .window-pct {
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .window-pct.critical { color: #c0392b; }
+    .window-pct.warn     { color: #b45309; }
+    .window-pct.ok       { color: #2d6a4f; }
+
+    /* ASCII bar: [████████░░] */
+    .ascii-bar {
+      font-size: 11px;
+      letter-spacing: 0;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    .ascii-bar .filled { /* inherits parent color */ }
+    .ascii-bar .empty  { color: var(--border); }
+
+    .window-reset {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .window-reset .arrow { color: var(--accent); }
+
+    /* ── Extra credits ── */
+    .extra {
+      margin-bottom: 10px;
+      padding: 6px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .extra .key { color: var(--text); font-weight: 700; }
+
+    /* ── Error ── */
+    #error {
+      padding: 8px 10px;
+      background: var(--bg-card);
+      border-left: 3px solid #c0392b;
+      font-size: 11px;
+      color: #c0392b;
+      margin-bottom: 8px;
+    }
+    #error .err-label { font-weight: 700; }
+
+    /* ── Status / footer ── */
+    #footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 14px 10px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    #status { font-size: 10px; color: var(--muted); }
+    #refresh-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--muted);
+      font: 10px/1.4 'JetBrains Mono', monospace;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+    #refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #refresh-btn:disabled { opacity: 0.4; cursor: default; }
+
+    #content { padding: 8px 14px 0; }
+
+    /* ── Sound toggle row ── */
+    #sound-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 14px 7px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--muted);
+    }
+    #sound-row .label { letter-spacing: .03em; }
+
+    /* pill toggle */
+    .toggle {
+      position: relative;
+      width: 32px;
+      height: 17px;
+      cursor: pointer;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 99px;
+      transition: background .2s;
+    }
+    .toggle input:checked ~ .toggle-track { background: var(--accent); }
+    .toggle-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 13px;
+      height: 13px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .2s;
+      pointer-events: none;
+    }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(15px); }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <span class="logo">✳</span>
+    <span class="title">claude-usage</span>
+    <span class="subtitle" id="header-status">—</span>
+  </div>
+
+  <div id="shell">
+    <div class="prompt-line">
+      <span class="ps1">›</span>
+      <span class="cmd">usage --breakdown</span>
+    </div>
+  </div>
+
+  <div id="content"></div>
+
+  <div id="sound-row">
+    <span class="label">sound notifications</span>
+    <label class="toggle">
+      <input type="checkbox" id="sound-toggle" />
+      <span class="toggle-track"></span>
+      <span class="toggle-thumb"></span>
+    </label>
+  </div>
+
+  <div id="footer">
+    <span id="status"></span>
+    <button id="refresh-btn">⟳ refresh</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
