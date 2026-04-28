@@ -5,7 +5,10 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:paulkuo.tw)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(python3 -)"
+      "Bash(python3 -)",
+      "Bash(mkdir -p /home/h3/work/claude_usage_extension/screenshots)",
+      "Bash(cp /home/h3/.claude/image-cache/c1cfc325-bbbc-40fd-9875-d57828a04181/1.png /home/h3/work/claude_usage_extension/screenshots/popup.png)",
+      "Bash(cp /home/h3/.claude/image-cache/c1cfc325-bbbc-40fd-9875-d57828a04181/2.png /home/h3/work/claude_usage_extension/screenshots/overlay.png)"
     ]
   }
 }

@@ -6,6 +6,12 @@ Una extensión chiquita que te dice cómo vas en Claude.ai sin que tengas que de
 
 Mientras trabajás o navegás, la extensión revisa en silencio el uso cada cinco minutos, guarda todo en `chrome.storage`, y solo te manda un sonidito cuando uno de los límites sube o baja.
 
+## Screenshots
+
+![Popup con breakdown de uso](screenshots/popup.png)
+
+![Overlay flotante en claude.ai](screenshots/overlay.png)
+
 ## Cómo probarla
 1. Abrí `chrome://extensions` (o `edge://extensions`).
 2. Activa el modo desarrollador.
