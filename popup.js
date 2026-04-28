@@ -1,5 +1,3 @@
-const BAR_WIDTH = 20; // chars for ASCII bar
-
 function clampedPct(n) {
   return Math.min(Math.max(Math.round(n ?? 0), 0), 100);
 }
@@ -16,11 +14,9 @@ function severityClass(util) {
 }
 
 function asciiBar(util) {
-  const filled = Math.round(clampedPct(util) / 100 * BAR_WIDTH);
-  const empty = BAR_WIDTH - filled;
+  const pct = clampedPct(util);
   const cls = severityClass(util);
-  const fillChar = cls === "critical" ? "█" : cls === "warn" ? "▓" : "█";
-  return `[<span class="filled ${cls}">${fillChar.repeat(filled)}</span><span class="empty">${"░".repeat(empty)}</span>]`;
+  return `<span class="filled ${cls}" style="width:${pct}%"></span>`;
 }
 
 function timeUntil(iso) {
