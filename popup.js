@@ -1,3 +1,24 @@
+// to add dark theme
+//
+//
+chrome.storage.local.get('theme', ({ theme }) => {
+  if (theme === 'dark') {
+    document.body.classList.add('dark');
+  } else if (!theme) {
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.body.classList.add('dark');
+    }
+  }
+});
+
+document.body.addEventListener('click', (e) => {
+  if (e.target.id === 'theme-btn') {
+    document.body.classList.toggle('dark');
+    const isDark = document.body.classList.contains('dark');
+    chrome.storage.local.set({ theme: isDark ? 'dark' : 'light' });
+  }
+});
+
 function clampedPct(n) {
   return Math.min(Math.max(Math.round(n ?? 0), 0), 100);
 }
