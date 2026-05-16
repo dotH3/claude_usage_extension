@@ -159,16 +159,16 @@ function injectStyles() {
     s = document.createElement("style");
     s.id = "cue-styles";
     document.head.appendChild(s);
-  }
-  s.textContent = `
+}
+s.textContent = `
     #${WIDGET_ID} {
       position: fixed;
       bottom: 20px;
       right: 20px;
       z-index: 2147483647;
-      background: #f5f0eb;
-      color: #1a1a1a;
-      border: 1px solid #d6cfc8;
+      background: var(--cue-bg, #f5f0eb);
+      color: var(--cue-text, #1a1a1a);
+      border: 1px solid var(--cue-border, #d6cfc8);
       border-left: 3px solid #c96442;
       padding: 4px 10px;
       font: 500 11px/1.5 'JetBrains Mono','Fira Mono','Cascadia Code',monospace;
@@ -179,7 +179,7 @@ function injectStyles() {
       align-items: center;
       gap: 5px;
     }
-    #${WIDGET_ID}:hover { background: #ede8e2; }
+    #${WIDGET_ID}:hover { background: var(--cue-bg-card, #ede8e2); }
     .cue-badge-ps1 { color: #c96442; font-size: 12px; }
 
     #${TOOLTIP_ID} {
@@ -188,16 +188,37 @@ function injectStyles() {
       bottom: 54px;
       right: 20px;
       z-index: 2147483647;
-      background: #f5f0eb;
-      color: #1a1a1a;
-      border: 1px solid #d6cfc8;
+      background: var(--cue-bg, #f5f0eb);
+      color: var(--cue-text, #1a1a1a);
+      border: 1px solid var(--cue-border, #d6cfc8);
       border-left: 3px solid #c96442;
       padding: 10px 12px;
       font: 11px/1.7 'JetBrains Mono','Fira Mono','Cascadia Code',monospace;
       min-width: 260px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.14);
     }
-
+    #${WIDGET_ID}.cue-dark {
+      background: #111111 !important;
+      color: #f5f5f5 !important;
+      border-color: #333333 !important;
+    }
+    #${WIDGET_ID}.cue-dark:hover {
+      background: #1b1b1b !important;
+    }
+    #${TOOLTIP_ID}.cue-dark {
+      background: #111111 !important;
+      color: #f5f5f5 !important;
+      border-color: #333333 !important;
+    }
+    #${TOOLTIP_ID}.cue-dark .cue-label,
+    #${TOOLTIP_ID}.cue-dark .cue-reset,
+    #${TOOLTIP_ID}.cue-dark .cue-extra,
+    #${TOOLTIP_ID}.cue-dark .cue-key {
+      color: #f5f5f5 !important;
+    }
+    #${TOOLTIP_ID}.cue-dark .cue-extra {
+      border-top-color: #333333 !important;
+    }
     .cue-header {
       font-weight: 700;
       color: #c96442;
@@ -212,16 +233,15 @@ function injectStyles() {
       margin-bottom: 2px;
       white-space: nowrap;
     }
-    .cue-label { min-width: 88px; font-size: 10px; color: #7a7068; }
+    .cue-label { min-width: 88px; font-size: 10px; color: var(--cue-text, #7a7068); }
     .cue-bar   { font-size: 10px; letter-spacing: -0.5px; }
     .cue-pct   { min-width: 36px; font-size: 11px; font-weight: 700; text-align: right; }
-    .cue-reset { font-size: 10px; color: #7a7068; white-space: nowrap; margin-left: 2px; }
-    .cue-extra { margin-top: 5px; font-size: 10px; color: #7a7068; border-top: 1px solid #d6cfc8; padding-top: 5px; }
-    .cue-key   { color: #1a1a1a; font-weight: 700; }
+    .cue-reset { font-size: 10px; color: var(--cue-text, #7a7068); white-space: nowrap; margin-left: 2px; }
+    .cue-extra { margin-top: 5px; font-size: 10px; color: var(--cue-text, #7a7068); border-top: 1px solid var(--cue-border, #d6cfc8); padding-top: 5px; }
+    .cue-key   { color: var(--cue-text, #1a1a1a); font-weight: 700; }
     .cue-age   { margin-top: 4px; font-size: 9px; color: #b0a89e; text-align: right; }
   `;
 }
-
 // ─── Audio ───────────────────────────────────────────────────────────────────
 
 let audioCtx = null;
@@ -284,14 +304,37 @@ function playRestored() {
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 
+//to apply dark theme
+function applyTheme(theme) {
+  const widget = document.getElementById(WIDGET_ID);
+  const tooltip = document.getElementById(TOOLTIP_ID);
+  const isDark = theme === 'dark';
+  [widget, tooltip].forEach(el => {
+    if (!el) return;
+    el.classList.toggle('cue-dark', isDark);
+  });
+}
+
 function loadFromStorage() {
-  chrome.storage.local.get(["usageData", "usageError"], ({ usageData, usageError }) => {
+  chrome.storage.local.get(["usageData", "usageError","theme"], ({ usageData, usageError, theme }) => {
     updateWidget(usageData, usageError);
+	  applyTheme(theme);
   });
 }
 
 injectStyles();
 loadFromStorage();
+
+// Apply on load
+//chrome.storage.local.get('theme', ({ theme }) => applyTheme(theme));
+
+// React to changes in real time
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.theme) {
+    applyTheme(changes.theme.newValue);
+  }
+});
+
 
 // Live updates from background
 chrome.runtime.onMessage.addListener((msg) => {
