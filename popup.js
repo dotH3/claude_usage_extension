@@ -110,7 +110,9 @@ function load() {
   );
 }
 
+// Show cached data immediately, then refresh as soon as the popup opens.
 load();
+chrome.runtime.sendMessage({ type: "fetchNow" }, () => load());
 
 document.getElementById("refresh-btn").addEventListener("click", function () {
   this.disabled = true;

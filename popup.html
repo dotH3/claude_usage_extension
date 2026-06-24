@@ -92,11 +92,26 @@
       flex: 1;
       height: 11px;
       background: var(--faint);
+      overflow: hidden;
     }
-    .bar-fill { height: 100%; }
-    .bar-fill.ok       { background: var(--ok); }
-    .bar-fill.warn     { background: var(--warn); }
-    .bar-fill.critical { background: var(--crit); }
+    .bar-fill {
+      display: block;
+      height: 100%;
+      min-width: 2px;
+      transition: width .45s cubic-bezier(.4,0,.2,1);
+    }
+    .bar-fill.ok {
+      background: linear-gradient(180deg, #52b788, #2d6a4f);
+      box-shadow: 0 0 6px rgba(64,145,108,.6);
+    }
+    .bar-fill.warn {
+      background: linear-gradient(180deg, #f59e0b, #b45309);
+      box-shadow: 0 0 6px rgba(217,119,6,.6);
+    }
+    .bar-fill.critical {
+      background: linear-gradient(180deg, #ef5350, #c0392b);
+      box-shadow: 0 0 7px rgba(231,76,60,.65);
+    }
 
     .window-reset {
       font-size: 10px;

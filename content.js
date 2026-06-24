@@ -227,11 +227,23 @@ s.textContent = `
     .cue-pct     { font-size: 11px; font-weight: 700; }
     .cue-bar     { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
     .cue-bracket { color: #7a7068; }
-    .cue-track   { flex: 1; height: 10px; background: #c4bbb1; }
-    .cue-fill    { display: block; height: 100%; }
-    .cue-fill.ok { background: #2d6a4f; }
-    .cue-fill.warn { background: #b45309; }
-    .cue-fill.critical { background: #c0392b; }
+    .cue-track   { flex: 1; height: 10px; background: #c4bbb1; overflow: hidden; }
+    .cue-fill    {
+      display: block; height: 100%; min-width: 2px;
+      transition: width .45s cubic-bezier(.4,0,.2,1);
+    }
+    .cue-fill.ok {
+      background: linear-gradient(180deg, #52b788, #2d6a4f);
+      box-shadow: 0 0 6px rgba(64,145,108,.6);
+    }
+    .cue-fill.warn {
+      background: linear-gradient(180deg, #f59e0b, #b45309);
+      box-shadow: 0 0 6px rgba(217,119,6,.6);
+    }
+    .cue-fill.critical {
+      background: linear-gradient(180deg, #ef5350, #c0392b);
+      box-shadow: 0 0 7px rgba(231,76,60,.65);
+    }
     .cue-reset   { font-size: 10px; color: #7a7068; white-space: nowrap; }
     .cue-extra   { padding-top: 7px; font-size: 10px; color: #7a7068; border-top: 1px dashed #d6cfc8; }
     .cue-key     { color: #c96442; font-weight: 700; }

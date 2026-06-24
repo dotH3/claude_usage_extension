@@ -91,6 +91,36 @@ function parseUsage(raw) {
 }
 
 
+/**
+ * Update the toolbar badge with the highest utilization across all windows.
+ * Color shifts green → orange → red based on severity.
+ */
+function updateBadge(data) {
+  let max = null;
+  if (data && data.windows) {
+    for (const w of data.windows) {
+      if (w.utilization != null && (max == null || w.utilization > max)) {
+        max = w.utilization;
+      }
+    }
+  }
+
+  if (max == null) {
+    chrome.action.setBadgeText({ text: "" });
+    return;
+  }
+
+  const pct = Math.round(max);
+  const color = pct >= 90 ? "#c0392b" : pct >= 70 ? "#b45309" : "#2d6a4f";
+  chrome.action.setBadgeBackgroundColor({ color });
+  chrome.action.setBadgeText({ text: `${pct}%` });
+}
+
+function clearBadge() {
+  chrome.action.setBadgeText({ text: "!" });
+  chrome.action.setBadgeBackgroundColor({ color: "#888888" });
+}
+
 async function doFetch() {
   try {
     const orgId = await getOrgId();
@@ -100,6 +130,7 @@ async function doFetch() {
         usageData: null,
         usageFetchedAt: Date.now(),
       });
+      clearBadge();
       return;
     }
 
@@ -113,6 +144,8 @@ async function doFetch() {
       orgId,
     });
 
+    updateBadge(data);
+
     // Notify popup
     chrome.runtime.sendMessage({ type: "usageUpdated", data }).catch(() => {});
   } catch (err) {
@@ -120,6 +153,7 @@ async function doFetch() {
       usageError: err.message,
       usageFetchedAt: Date.now(),
     });
+    clearBadge();
   }
 }
 
