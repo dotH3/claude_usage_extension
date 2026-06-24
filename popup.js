@@ -37,7 +37,9 @@ function severityClass(util) {
 function asciiBar(util) {
   const pct = clampedPct(util);
   const cls = severityClass(util);
-  return `<span class="filled ${cls}" style="width:${pct}%"></span>`;
+  return `<span class="bar-bracket">[</span>` +
+         `<span class="bar-track"><span class="bar-fill ${cls}" style="width:${pct}%"></span></span>` +
+         `<span class="bar-bracket">]</span>`;
 }
 
 function timeUntil(iso) {
@@ -52,13 +54,14 @@ function timeUntil(iso) {
 function renderWindow(w) {
   const cls = severityClass(w.utilization);
   const reset = timeUntil(w.resetsAt);
+  const label = w.label.toLowerCase().replace(/\s+/g, '_');
   return `
     <div class="window ${cls}">
       <div class="window-header">
-        <span class="window-label">${w.label}</span>
+        <span class="window-label">${label}</span>
         <span class="window-pct ${cls}">${pctLabel(w.utilization)}</span>
       </div>
-      <div class="ascii-bar">${asciiBar(w.utilization)}</div>
+      <div class="term-bar">${asciiBar(w.utilization)}</div>
       ${reset ? `<div class="window-reset"><span class="arrow">↻</span> resets in ${reset}</div>` : ""}
     </div>`;
 }
@@ -106,21 +109,6 @@ function load() {
     render
   );
 }
-
-// ── Sound toggle ──────────────────────────────────────────────────────────────
-
-const soundToggle = document.getElementById("sound-toggle");
-
-chrome.storage.local.get("soundEnabled", ({ soundEnabled }) => {
-  // default ON
-  soundToggle.checked = soundEnabled !== false;
-});
-
-soundToggle.addEventListener("change", () => {
-  chrome.storage.local.set({ soundEnabled: soundToggle.checked });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 load();
 

@@ -47,10 +47,12 @@ function colorForUtilization(u) {
   return COLORS[severityOf(u)];
 }
 
-const BAR_W = 16;
 function asciiBar(util) {
-  const filled = Math.round(Math.min(Math.max(util ?? 0, 0), 100) / 100 * BAR_W);
-  return "[" + "█".repeat(filled) + "░".repeat(BAR_W - filled) + "]";
+  const pct = Math.min(Math.max(Math.round(util ?? 0), 0), 100);
+  const sev = severityOf(util);
+  return `<span class="cue-bracket">[</span>` +
+         `<span class="cue-track"><span class="cue-fill cue-${sev}" style="width:${pct}%"></span></span>` +
+         `<span class="cue-bracket">]</span>`;
 }
 
 // ─── Render ──────────────────────────────────────────────────────────────────
@@ -62,12 +64,15 @@ function buildTooltipHTML(data) {
     const color = colorForUtilization(w.utilization);
     const reset = timeUntil(w.resetsAt);
     const bar = asciiBar(w.utilization);
+    const label = w.label.toLowerCase().replace(/\s+/g, "_");
     return `
-      <div class="cue-row">
-        <span class="cue-label">${w.label.toLowerCase().replace(" ", "_")}</span>
-        <span class="cue-bar" style="color:${color}">${bar}</span>
+      <div class="cue-line">
+        <span class="cue-label">${label}</span>
         <span class="cue-pct" style="color:${color}">${pct(w.utilization)}</span>
-        ${reset ? `<span class="cue-reset">↻${reset}</span>` : ""}
+      </div>
+      <div class="cue-row">
+        <span class="cue-bar">${bar}</span>
+        ${reset ? `<span class="cue-reset">↻ ${reset}</span>` : ""}
       </div>`;
   });
 
@@ -83,7 +88,11 @@ function buildTooltipHTML(data) {
     ? `fetched ${Math.round((Date.now() - data.fetchedAt) / 60_000)}m ago`
     : "";
 
-  return `<div class="cue-header">✳ claude-usage</div>${rows.join("")}${extraHTML}<div class="cue-age">${age}</div>`;
+  return `${tooltipHeader()}${rows.join("")}${extraHTML}<div class="cue-age">${age}</div>`;
+}
+
+function tooltipHeader() {
+  return `<div class="cue-header"><span class="cue-star">✳</span> claude-usage</div>`;
 }
 
 function getOrCreateWidget() {
@@ -132,14 +141,14 @@ function updateWidget(data, error) {
   if (error) {
     label.textContent = "err";
     label.style.color = COLORS.critical;
-    tooltip.innerHTML = `<div class="cue-header">✳ claude-usage</div><span style="color:#c0392b">error: ${error}</span>`;
+    tooltip.innerHTML = `${tooltipHeader()}<div class="cue-msg" style="color:#c0392b">error: ${error}</div>`;
     return;
   }
 
   if (!data || !data.windows.length) {
     label.textContent = "--";
     label.style.color = COLORS.muted;
-    tooltip.innerHTML = `<div class="cue-header">✳ claude-usage</div><span style="color:#7a7068">no data — open claude.ai</span>`;
+    tooltip.innerHTML = `${tooltipHeader()}<div class="cue-msg" style="color:#7a7068">no data — open claude.ai</div>`;
     return;
   }
 
@@ -166,142 +175,94 @@ s.textContent = `
       bottom: 20px;
       right: 20px;
       z-index: 2147483647;
-      background: var(--cue-bg, #f5f0eb);
-      color: var(--cue-text, #1a1a1a);
-      border: 1px solid var(--cue-border, #d6cfc8);
+      background: #f5f0eb;
+      color: #1a1a1a;
+      border: 1px solid #d6cfc8;
       border-left: 3px solid #c96442;
-      padding: 4px 10px;
+      padding: 5px 11px;
       font: 500 11px/1.5 'JetBrains Mono','Fira Mono','Cascadia Code',monospace;
       cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.14);
       user-select: none;
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
     }
-    #${WIDGET_ID}:hover { background: var(--cue-bg-card, #ede8e2); }
-    .cue-badge-ps1 { color: #c96442; font-size: 12px; }
+    #${WIDGET_ID}:hover { background: #ede8e2; }
+    .cue-badge-ps1 { color: #c96442; font-size: 12px; font-weight: 700; }
+    #cue-badge-label { font-weight: 700; }
 
     #${TOOLTIP_ID} {
       display: none;
       position: fixed;
-      bottom: 54px;
+      bottom: 56px;
       right: 20px;
       z-index: 2147483647;
-      background: var(--cue-bg, #f5f0eb);
-      color: var(--cue-text, #1a1a1a);
-      border: 1px solid var(--cue-border, #d6cfc8);
+      background: #f5f0eb;
+      color: #1a1a1a;
+      border: 1px solid #d6cfc8;
       border-left: 3px solid #c96442;
       padding: 10px 12px;
-      font: 11px/1.7 'JetBrains Mono','Fira Mono','Cascadia Code',monospace;
-      min-width: 260px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+      font: 11px/1.6 'JetBrains Mono','Fira Mono','Cascadia Code',monospace;
+      width: 250px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.18);
     }
-    #${WIDGET_ID}.cue-dark {
-      background: #111111 !important;
-      color: #f5f5f5 !important;
-      border-color: #333333 !important;
-    }
-    #${WIDGET_ID}.cue-dark:hover {
-      background: #1b1b1b !important;
-    }
-    #${TOOLTIP_ID}.cue-dark {
-      background: #111111 !important;
-      color: #f5f5f5 !important;
-      border-color: #333333 !important;
-    }
-    #${TOOLTIP_ID}.cue-dark .cue-label,
-    #${TOOLTIP_ID}.cue-dark .cue-reset,
-    #${TOOLTIP_ID}.cue-dark .cue-extra,
-    #${TOOLTIP_ID}.cue-dark .cue-key {
-      color: #f5f5f5 !important;
-    }
-    #${TOOLTIP_ID}.cue-dark .cue-extra {
-      border-top-color: #333333 !important;
-    }
-    .cue-header {
-      font-weight: 700;
-      color: #c96442;
-      margin-bottom: 6px;
-      font-size: 11px;
-      letter-spacing: .04em;
+
+    .cue-header { font-size: 11px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
+    .cue-star { color: #c96442; font-weight: 700; }
+
+    .cue-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 3px;
     }
     .cue-row {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: 5px;
-      margin-bottom: 2px;
-      white-space: nowrap;
+      margin-bottom: 8px;
     }
-    .cue-label { min-width: 88px; font-size: 10px; color: var(--cue-text, #7a7068); }
-    .cue-bar   { font-size: 10px; letter-spacing: -0.5px; }
-    .cue-pct   { min-width: 36px; font-size: 11px; font-weight: 700; text-align: right; }
-    .cue-reset { font-size: 10px; color: var(--cue-text, #7a7068); white-space: nowrap; margin-left: 2px; }
-    .cue-extra { margin-top: 5px; font-size: 10px; color: var(--cue-text, #7a7068); border-top: 1px solid var(--cue-border, #d6cfc8); padding-top: 5px; }
-    .cue-key   { color: var(--cue-text, #1a1a1a); font-weight: 700; }
-    .cue-age   { margin-top: 4px; font-size: 9px; color: #b0a89e; text-align: right; }
+    .cue-label   { font-size: 10px; font-weight: 700; color: #1a1a1a; }
+    .cue-pct     { font-size: 11px; font-weight: 700; }
+    .cue-bar     { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+    .cue-bracket { color: #7a7068; }
+    .cue-track   { flex: 1; height: 10px; background: #c4bbb1; }
+    .cue-fill    { display: block; height: 100%; }
+    .cue-fill.ok { background: #2d6a4f; }
+    .cue-fill.warn { background: #b45309; }
+    .cue-fill.critical { background: #c0392b; }
+    .cue-reset   { font-size: 10px; color: #7a7068; white-space: nowrap; }
+    .cue-extra   { padding-top: 7px; font-size: 10px; color: #7a7068; border-top: 1px dashed #d6cfc8; }
+    .cue-key     { color: #c96442; font-weight: 700; }
+    .cue-age     { margin-top: 5px; font-size: 9px; color: #b0a89e; text-align: right; }
+
+    /* ── dark theme ── */
+    #${WIDGET_ID}.cue-dark {
+      background: #0d0d0d;
+      color: #e8e8e8;
+      border-color: #2a2a2a;
+      border-left-color: #ff8c69;
+    }
+    #${WIDGET_ID}.cue-dark:hover { background: #161616; }
+    #${WIDGET_ID}.cue-dark .cue-badge-ps1 { color: #ff8c69; }
+
+    #${TOOLTIP_ID}.cue-dark {
+      background: #0d0d0d;
+      color: #e8e8e8;
+      border-color: #2a2a2a;
+      border-left-color: #ff8c69;
+    }
+    #${TOOLTIP_ID}.cue-dark .cue-header { color: #e8e8e8; }
+    #${TOOLTIP_ID}.cue-dark .cue-star { color: #ff8c69; }
+    #${TOOLTIP_ID}.cue-dark .cue-label { color: #e8e8e8; }
+    #${TOOLTIP_ID}.cue-dark .cue-bracket,
+    #${TOOLTIP_ID}.cue-dark .cue-reset { color: #888888; }
+    #${TOOLTIP_ID}.cue-dark .cue-track { background: #3a3a3a; }
+    #${TOOLTIP_ID}.cue-dark .cue-key { color: #ff8c69; }
+    #${TOOLTIP_ID}.cue-dark .cue-extra { color: #888888; border-top-color: #2a2a2a; }
   `;
 }
-// ─── Audio ───────────────────────────────────────────────────────────────────
-
-let audioCtx = null;
-
-function getAudioCtx() {
-  if (!audioCtx || audioCtx.state === "closed") {
-    audioCtx = new AudioContext();
-  }
-  return audioCtx;
-}
-
-/**
- * Play a sequence of { freq, duration, type } notes.
- * gain: master volume (0–1).
- */
-function playSequence(notes, gain = 0.18) {
-  const ctx = getAudioCtx();
-  let t = ctx.currentTime + 0.05;
-
-  for (const note of notes) {
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-
-    osc.connect(env);
-    env.connect(ctx.destination);
-
-    osc.type = note.type ?? "sine";
-    osc.frequency.setValueAtTime(note.freq, t);
-
-    // soft attack + decay envelope
-    env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(gain, t + 0.02);
-    env.gain.exponentialRampToValueAtTime(0.001, t + note.duration);
-
-    osc.start(t);
-    osc.stop(t + note.duration + 0.01);
-
-    t += note.duration * 0.85;
-  }
-}
-
-// depleted: descending minor thirds — melancholic "out of credits" ding-ding-down
-function playDepleted() {
-  playSequence([
-    { freq: 523, duration: 0.18 },  // C5
-    { freq: 415, duration: 0.18 },  // G#4
-    { freq: 330, duration: 0.32 },  // E4
-  ], 0.15);
-}
-
-// restored: ascending major chord arpeggio — cheerful "credits back" chime
-function playRestored() {
-  playSequence([
-    { freq: 392, duration: 0.14 },  // G4
-    { freq: 494, duration: 0.14 },  // B4
-    { freq: 587, duration: 0.14 },  // D5
-    { freq: 784, duration: 0.28 },  // G5
-  ], 0.16);
-}
-
 // ─── Init ────────────────────────────────────────────────────────────────────
 
 //to apply dark theme
@@ -340,13 +301,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "usageUpdated") {
     updateWidget(msg.data, null);
-  }
-  if (msg.type === "playSound") {
-    chrome.storage.local.get("soundEnabled", ({ soundEnabled }) => {
-      if (soundEnabled === false) return;
-      if (msg.sound === "depleted") playDepleted();
-      else if (msg.sound === "restored") playRestored();
-    });
   }
 });
 

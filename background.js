@@ -90,43 +90,6 @@ function parseUsage(raw) {
   return { windows, extra, fetchedAt: Date.now() };
 }
 
-// Threshold: utilization >= this → considered "depleted"
-const DEPLETED_THRESHOLD = 95;
-
-/**
- * Detect sound events by comparing previous vs new utilization per window.
- * Returns "depleted" | "restored" | null.
- *
- * depleted: any window crosses up through DEPLETED_THRESHOLD
- * restored: any previously-depleted window drops back below 50 (reset happened)
- */
-function detectSoundEvent(prevData, newData) {
-  if (!prevData || !newData) return null;
-
-  const prevMap = Object.fromEntries(prevData.windows.map((w) => [w.key, w.utilization]));
-
-  let depleted = false;
-  let restored = false;
-
-  for (const w of newData.windows) {
-    const prev = prevMap[w.key] ?? 0;
-    const curr = w.utilization ?? 0;
-    if (prev < DEPLETED_THRESHOLD && curr >= DEPLETED_THRESHOLD) depleted = true;
-    if (prev >= DEPLETED_THRESHOLD && curr < 50) restored = true;
-  }
-
-  // restored takes priority — good news first
-  if (restored) return "restored";
-  if (depleted) return "depleted";
-  return null;
-}
-
-async function broadcastToContentScripts(msg) {
-  const tabs = await chrome.tabs.query({ url: "https://claude.ai/*" });
-  for (const tab of tabs) {
-    chrome.tabs.sendMessage(tab.id, msg).catch(() => {});
-  }
-}
 
 async function doFetch() {
   try {
@@ -143,9 +106,6 @@ async function doFetch() {
     const raw = await fetchUsage(orgId);
     const data = parseUsage(raw);
 
-    // Read previous data before overwriting
-    const { usageData: prevData } = await chrome.storage.local.get("usageData");
-
     await chrome.storage.local.set({
       usageData: data,
       usageError: null,
@@ -153,15 +113,8 @@ async function doFetch() {
       orgId,
     });
 
-    const soundEvent = detectSoundEvent(prevData, data);
-
     // Notify popup
     chrome.runtime.sendMessage({ type: "usageUpdated", data }).catch(() => {});
-
-    // Notify content scripts (can play audio; service workers cannot)
-    if (soundEvent) {
-      broadcastToContentScripts({ type: "playSound", sound: soundEvent });
-    }
   } catch (err) {
     await chrome.storage.local.set({
       usageError: err.message,
