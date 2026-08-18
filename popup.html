@@ -1,205 +1,105 @@
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Claude Usage</title>
+  <title>Usage Monitor</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; }
     :root {
-      --bg:        #f5f0eb;
-      --bg-card:   #ede8e2;
-      --border:    #d6cfc8;
-      --text:      #1a1a1a;
-      --muted:     #7a7068;
-      --faint:     #c4bbb1;
-      --accent:    #c96442;   /* coral — Claude brand */
-      --warn:      #b45309;
-      --ok:        #2d6a4f;
-      --crit:      #c0392b;
+      color-scheme: dark;
+      --bg: #0d1117;
+      --panel: #151b23;
+      --panel-strong: #1b2430;
+      --line: #293442;
+      --text: #e7edf3;
+      --muted: #8c9aaa;
+      --faint: #536170;
+      --track: #26313d;
+      --accent: #ff9274;
+      --go: #78c7c3;
+      --ok: #67d6a0;
+      --warn: #f0b567;
+      --critical: #ff7773;
     }
-    body.dark {
-      --bg:          #0d0d0d;
-      --bg-card:     #161616;
-      --border:      #2a2a2a;
-      --text:        #e8e8e8;
-      --muted:       #888888;
-      --faint:       #3a3a3a;
-      --accent:      #ff8c69;
-      --warn:        #f59e0b;
-      --ok:          #4ade80;
-      --crit:        #f87171;
+    body.light {
+      color-scheme: light;
+      --bg: #f3f0eb;
+      --panel: #fffdfa;
+      --panel-strong: #f4efe9;
+      --line: #ded7cf;
+      --text: #1c2329;
+      --muted: #737b80;
+      --faint: #a8aaa7;
+      --track: #e4ded6;
+      --accent: #c76548;
+      --go: #287e7a;
+      --ok: #287d61;
+      --warn: #a6661c;
+      --critical: #c84543;
     }
-
-    body {
-      width: 300px;
-      background: var(--bg);
-      color: var(--text);
-      font: 12px/1.6 'JetBrains Mono', 'Fira Mono', 'Cascadia Code', monospace;
-      padding: 0;
-    }
-
-    /* ── Header ── */
-    #header {
-      display: flex;
-      align-items: baseline;
-      gap: 7px;
-      padding: 11px 14px 9px;
-      border-bottom: 1px solid var(--border);
-    }
-    #header .logo { color: var(--accent); font-weight: 700; font-size: 13px; }
-    #header .title { font-size: 11px; font-weight: 700; color: var(--text); }
-    #header .subtitle { margin-left: auto; font-size: 10px; color: var(--muted); }
-
-    /* ── Usage blocks ── */
-    .window {
-      padding: 9px 0;
-      border-bottom: 1px dashed var(--border);
-    }
-    .window:last-child { border-bottom: none; }
-
-    .window-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 4px;
-    }
-    .window-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .window-pct {
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .window-pct.critical { color: var(--crit); }
-    .window-pct.warn     { color: var(--warn); }
-    .window-pct.ok       { color: var(--ok); }
-
-    /* full-width terminal bar */
-    .term-bar {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-bottom: 5px;
-      font-size: 12px;
-      line-height: 1;
-    }
-    .bar-bracket { color: var(--muted); }
-    .bar-track {
-      flex: 1;
-      height: 11px;
-      background: var(--faint);
-      overflow: hidden;
-    }
-    .bar-fill {
-      display: block;
-      height: 100%;
-      min-width: 2px;
-      transition: width .45s cubic-bezier(.4,0,.2,1);
-    }
-    .bar-fill.ok {
-      background: linear-gradient(180deg, #52b788, #2d6a4f);
-      box-shadow: 0 0 6px rgba(64,145,108,.6);
-    }
-    .bar-fill.warn {
-      background: linear-gradient(180deg, #f59e0b, #b45309);
-      box-shadow: 0 0 6px rgba(217,119,6,.6);
-    }
-    .bar-fill.critical {
-      background: linear-gradient(180deg, #ef5350, #c0392b);
-      box-shadow: 0 0 7px rgba(231,76,60,.65);
-    }
-
-    .window-reset {
-      font-size: 10px;
-      color: var(--muted);
-    }
-    .window-reset .arrow { color: var(--accent); }
-
-    /* ── Extra credits ── */
-    .extra {
-      padding: 9px 0 0;
-      font-size: 10px;
-      color: var(--muted);
-      border-top: 1px dashed var(--border);
-    }
-    .extra .key { color: var(--accent); font-weight: 700; }
-
-    /* ── Error ── */
-    #error {
-      padding: 8px 0;
-      font-size: 11px;
-      color: var(--crit);
-      margin-bottom: 4px;
-    }
-    #error .err-label { font-weight: 700; }
-
-    /* ── Status / footer ── */
-    #footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 7px 14px 10px;
-      border-top: 1px solid var(--border);
-      margin-top: 2px;
-    }
-    #status {
-      font-size: 10px;
-      color: var(--muted);
-      flex: 1 1 auto;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      margin-right: 8px;
-    }
-    #footer-actions {
-      display: flex;
-      gap: 4px;
-      flex-shrink: 0;
-    }
-    #refresh-btn,
-    #theme-btn,
-    #status-link-btn {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 0;
-      color: var(--muted);
-      font: 10px/1.4 'JetBrains Mono', monospace;
-      padding: 3px 6px;
-      white-space: nowrap;
-      cursor: pointer;
-      transition: border-color .15s, color .15s;
-    }
-    #refresh-btn:hover,
-    #theme-btn:hover,
-    #status-link-btn:hover { border-color: var(--accent); color: var(--accent); }
-    #refresh-btn:disabled { opacity: 0.4; cursor: default; }
-
-    #content { padding: 6px 14px 4px; }
-
+    body { width: 380px; margin: 0; overflow-x: hidden; background: var(--bg); color: var(--text); font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    button { border: 0; color: inherit; font: inherit; cursor: pointer; }
+    header { display: flex; align-items: flex-start; justify-content: space-between; padding: 17px 18px 15px; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .mark { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid var(--accent); color: var(--accent); font-size: 15px; }
+    .brand-name { font-size: 13px; font-weight: 700; letter-spacing: -.04em; }
+    .brand-sub { margin-top: 2px; color: var(--muted); font-size: 9px; letter-spacing: .11em; text-transform: uppercase; }
+    .header-age { padding-top: 3px; color: var(--muted); font-size: 10px; }
+    main { padding: 14px 14px 4px; }
+    .source-group { margin-top: 14px; border: 1px solid var(--line); background: var(--panel); }
+    .source-heading { display: flex; align-items: center; gap: 8px; padding: 10px 12px 8px; border-bottom: 1px solid var(--line); }
+    .source-dot { width: 7px; height: 7px; background: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent), transparent 35%); }
+    .source-dot.go { background: var(--go); box-shadow: 0 0 8px color-mix(in srgb, var(--go), transparent 35%); }
+    .source-name { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .source-note { margin-left: auto; color: var(--muted); font-size: 9px; }
+    .window { padding: 12px; border-bottom: 1px solid color-mix(in srgb, var(--line), transparent 35%); }
+    .window:last-child { border-bottom: 0; }
+    .window-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+    .window-label { font-size: 11px; font-weight: 700; }
+    .window-meta { display: flex; align-items: baseline; gap: 8px; }
+    .window-pct { font-size: 14px; font-weight: 700; }
+    .window-pct.ok { color: var(--ok); } .window-pct.warn { color: var(--warn); } .window-pct.critical { color: var(--critical); }
+    .window-left { color: var(--muted); font-size: 9px; }
+    .bar { position: relative; height: 10px; background: var(--track); overflow: hidden; }
+    .bar::before { position: absolute; z-index: 1; inset: 0; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), rgba(255,255,255,.14) 25%, transparent calc(25% + 1px)); content: ""; pointer-events: none; }
+    .fill { position: relative; display: block; height: 100%; min-width: 2px; transition: width .45s cubic-bezier(.4,0,.2,1); }
+    .fill.ok { background: var(--ok); box-shadow: 0 0 11px color-mix(in srgb, var(--ok), transparent 35%); }
+    .fill.warn { background: var(--warn); box-shadow: 0 0 11px color-mix(in srgb, var(--warn), transparent 35%); }
+    .fill.critical { background: var(--critical); box-shadow: 0 0 11px color-mix(in srgb, var(--critical), transparent 35%); }
+    .window-bottom { display: flex; justify-content: space-between; margin-top: 7px; color: var(--muted); font-size: 9px; }
+    .reset { color: var(--text); } .reset::before { margin-right: 5px; color: var(--accent); content: "↻"; }
+    .go-reset::before { color: var(--go); }
+    .extra { padding: 11px 12px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 10px; }
+    .extra strong { color: var(--accent); }
+    .notice { margin-top: 14px; padding: 11px 12px; border: 1px dashed var(--line); color: var(--muted); font-size: 10px; }
+    .notice.error { border-color: color-mix(in srgb, var(--critical), var(--line) 55%); color: var(--critical); }
+    .notice a { color: var(--accent); cursor: pointer; text-decoration: underline; }
+    footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 13px 14px 15px; color: var(--muted); }
+    #status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+    .actions { display: flex; gap: 5px; flex-shrink: 0; }
+    .action { padding: 5px 7px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 9px; }
+    .action:hover { border-color: var(--accent); color: var(--accent); }
+    .action:disabled { opacity: .45; cursor: default; }
+    .empty { padding: 28px 12px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); text-align: center; font-size: 11px; }
+    .empty strong { display: block; margin-bottom: 4px; color: var(--text); }
+    @media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
   </style>
 </head>
 <body>
-  <div id="header">
-    <span class="logo">✳</span>
-    <span class="title">claude-usage</span>
-    <span class="subtitle" id="header-status">—</span>
-  </div>
-
-  <div id="content"></div>
-
-  <div id="footer">
-    <span id="status"></span>
-    <div id="footer-actions">
-      <button id="status-link-btn">status</button>
-      <button id="theme-btn">theme</button>
-      <button id="refresh-btn">⟳ refresh</button>
+  <header>
+    <div class="brand"><span class="mark">✳</span><div><div class="brand-name">usage monitor</div><div class="brand-sub">claude + opencode go</div></div></div>
+    <span id="header-age" class="header-age">waiting</span>
+  </header>
+  <main id="content"></main>
+  <footer>
+    <span id="status">cached usage</span>
+    <div class="actions">
+      <button class="action" id="options-btn" type="button">settings</button>
+      <button class="action" id="theme-btn" type="button">theme</button>
+      <button class="action" id="refresh-btn" type="button">refresh</button>
     </div>
-  </div>
+  </footer>
   <script src="popup.js"></script>
 </body>
 </html>

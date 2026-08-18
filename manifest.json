@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Claude Usage Tracker",
-  "version": "1.0.0",
-  "description": "Shows Claude.ai plan usage, limits, and reset times without a backend.",
+  "name": "Usage Monitor",
+  "version": "2.1.0",
+  "description": "Monitor Claude and OpenCode Go usage, limits, and reset times.",
   "permissions": [
     "storage",
     "cookies",
@@ -10,7 +10,9 @@
     "tabs"
   ],
   "host_permissions": [
-    "https://claude.ai/*"
+    "https://claude.ai/*",
+    "https://opencode.ai/*",
+    "http://localhost:19876/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -24,7 +26,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Claude Usage Tracker",
+    "default_title": "Usage Monitor",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -37,5 +39,9 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
   }
 }

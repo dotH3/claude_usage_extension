@@ -1,325 +1,158 @@
-/**
- * content.js — injected into claude.ai pages
- *
- * Renders a floating usage badge in the bottom-right corner.
- * Shows on hover: full breakdown tooltip.
- *
- * Does NOT intercept fetch — relies on background.js polling the API.
- * Listens for chrome.runtime messages to update in real-time.
- */
+const WIDGET_ID = "usage-monitor-widget";
+const TOOLTIP_ID = "usage-monitor-tooltip";
 
-const WIDGET_ID = "claude-usage-ext-widget";
-const TOOLTIP_ID = "claude-usage-ext-tooltip";
-
-// ─── Utilities ───────────────────────────────────────────────────────────────
-
-function pct(n) {
-  if (n == null) return "?";
-  return `${Math.round(n)}%`;
-}
-
-function timeUntil(isoString) {
-  if (!isoString) return null;
-  const ms = new Date(isoString).getTime() - Date.now();
-  if (ms <= 0) return "resetting soon";
-  const h = Math.floor(ms / 3_600_000);
-  const m = Math.floor((ms % 3_600_000) / 60_000);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
-
-const COLORS = {
-  critical: "#c0392b",
-  warn:     "#b45309",
-  ok:       "#2d6a4f",
-  muted:    "#7a7068",
-  accent:   "#c96442",
-};
-
-function severityOf(u) {
-  if (u == null) return "muted";
-  if (u >= 90) return "critical";
-  if (u >= 70) return "warn";
+function severity(value) {
+  if (value >= 90) return "critical";
+  if (value >= 70) return "warn";
   return "ok";
 }
 
-function colorForUtilization(u) {
-  return COLORS[severityOf(u)];
+function timeUntil(iso) {
+  if (!iso) return "reset unknown";
+  const milliseconds = new Date(iso).getTime() - Date.now();
+  if (milliseconds <= 0) return "resetting soon";
+  const hours = Math.floor(milliseconds / 3_600_000);
+  const minutes = Math.floor((milliseconds % 3_600_000) / 60_000);
+  return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
-function asciiBar(util) {
-  const pct = Math.min(Math.max(Math.round(util ?? 0), 0), 100);
-  const sev = severityOf(util);
-  return `<span class="cue-bracket">[</span>` +
-         `<span class="cue-track"><span class="cue-fill cue-${sev}" style="width:${pct}%"></span></span>` +
-         `<span class="cue-bracket">]</span>`;
+function pct(value) {
+  return value == null ? "?" : `${Math.round(value)}%`;
 }
 
-// ─── Render ──────────────────────────────────────────────────────────────────
-
-function buildTooltipHTML(data) {
-  if (!data) return "<em>no data</em>";
-
-  const rows = data.windows.map((w) => {
-    const color = colorForUtilization(w.utilization);
-    const reset = timeUntil(w.resetsAt);
-    const bar = asciiBar(w.utilization);
-    const label = w.label.toLowerCase().replace(/\s+/g, "_");
-    return `
-      <div class="cue-line">
-        <span class="cue-label">${label}</span>
-        <span class="cue-pct" style="color:${color}">${pct(w.utilization)}</span>
-      </div>
-      <div class="cue-row">
-        <span class="cue-bar">${bar}</span>
-        ${reset ? `<span class="cue-reset">↻ ${reset}</span>` : ""}
-      </div>`;
-  });
-
-  let extraHTML = "";
-  if (data.extra?.enabled) {
-    const e = data.extra;
-    const used = e.used != null ? e.used.toLocaleString() : "?";
-    const limit = e.limit != null ? e.limit.toLocaleString() : "?";
-    extraHTML = `<div class="cue-extra"><span class="cue-key">extra_credits</span> ${used}/${limit}</div>`;
-  }
-
-  const age = data.fetchedAt
-    ? `fetched ${Math.round((Date.now() - data.fetchedAt) / 60_000)}m ago`
-    : "";
-
-  return `${tooltipHeader()}${rows.join("")}${extraHTML}<div class="cue-age">${age}</div>`;
+function sourceName(source) {
+  return source === "opencode" ? "OpenCode Go" : "Claude / Claude Code";
 }
 
-function tooltipHeader() {
-  return `<div class="cue-header"><span class="cue-star">✳</span> claude-usage</div>`;
+function normalizeWindows(windows) {
+  return (windows ?? []).map((window) => ({
+    ...window,
+    // Data saved by v1 predates the source field and is Claude usage.
+    source: window.source ?? "claude",
+  }));
+}
+
+function windowName(window) {
+  if (window.source !== "opencode") return window.label;
+  return { rolling: "5-hour", weekly: "weekly", monthly: "monthly" }[window.key] ?? window.label;
+}
+
+function bar(window) {
+  const value = Math.min(Math.max(Math.round(window.utilization ?? 0), 0), 100);
+  const cls = severity(window.utilization ?? 0);
+  return `<div class="um-bar"><span class="um-fill um-${cls}" style="width:${value}%"></span></div>`;
+}
+
+function buildTooltip(data, error) {
+  const windows = normalizeWindows(data?.windows);
+  const bySource = {
+    claude: windows.filter((window) => window.source === "claude"),
+    opencode: windows.filter((window) => window.source === "opencode"),
+  };
+  const groups = Object.entries(bySource)
+    .filter(([, sourceWindows]) => sourceWindows.length)
+    .map(([source, sourceWindows]) => `<div class="um-source"><div class="um-source-title"><span class="um-dot um-${source}"></span>${sourceName(source)}</div>${sourceWindows.map((window) => `<div class="um-window"><div class="um-window-head"><strong>${windowName(window)}</strong><b class="um-${severity(window.utilization ?? 0)}">${pct(window.utilization)}</b></div>${bar(window)}<div class="um-window-foot"><span>${window.status && window.status !== "ok" ? window.status : "usage"}</span><span>↻ ${timeUntil(window.resetsAt)}</span></div></div>`).join("")}</div>`)
+    .join("");
+  const errors = Object.entries(data?.errors ?? {}).filter(([, value]) => value).map(([source, value]) => `<div class="um-error">${sourceName(source)}: ${value}</div>`).join("");
+  const empty = !windows.length ? `<div class="um-empty">No usage data yet.<br>Open settings to connect OpenCode Go.</div>` : "";
+  const age = data?.fetchedAt ? `updated ${Math.max(0, Math.round((Date.now() - data.fetchedAt) / 60_000))}m ago` : "waiting for data";
+  return `<div class="um-head"><span class="um-mark">✳</span><strong>usage monitor</strong><span>${age}</span></div>${groups}${empty}${errors}`;
 }
 
 function getOrCreateWidget() {
-  let el = document.getElementById(WIDGET_ID);
-  if (el) return el;
+  let widget = document.getElementById(WIDGET_ID);
+  if (widget) return widget;
 
-  el = document.createElement("div");
-  el.id = WIDGET_ID;
-  el.title = "Claude Usage";
-  el.innerHTML = `<span class="cue-badge-ps1">✳</span><span id="cue-badge-label">…</span>`;
+  widget = document.createElement("button");
+  widget.id = WIDGET_ID;
+  widget.type = "button";
+  widget.innerHTML = `<span class="um-widget-mark">✳</span><span id="um-widget-value">--</span><span class="um-widget-label">usage</span>`;
 
   const tooltip = document.createElement("div");
   tooltip.id = TOOLTIP_ID;
+  tooltip.hidden = true;
   tooltip.innerHTML = "Loading…";
 
-  document.body.appendChild(el);
-  document.body.appendChild(tooltip);
-
+  document.body.append(widget, tooltip);
   injectStyles();
 
-  el.addEventListener("mouseenter", () => {
-    tooltip.style.display = "block";
-  });
-  el.addEventListener("mouseleave", () => {
-    tooltip.style.display = "none";
-  });
-  tooltip.addEventListener("mouseenter", () => {
-    tooltip.style.display = "block";
-  });
-  tooltip.addEventListener("mouseleave", () => {
-    tooltip.style.display = "none";
-  });
-
-  el.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "fetchNow" });
-  });
-
-  return el;
+  const show = () => { tooltip.hidden = false; };
+  const hide = () => { tooltip.hidden = true; };
+  widget.addEventListener("mouseenter", show);
+  widget.addEventListener("mouseleave", () => window.setTimeout(() => { if (!tooltip.matches(":hover")) hide(); }, 60));
+  tooltip.addEventListener("mouseleave", hide);
+  widget.addEventListener("click", () => chrome.runtime.sendMessage({ type: "fetchNow" }));
+  return widget;
 }
 
 function updateWidget(data, error) {
   const widget = getOrCreateWidget();
-  const label = document.getElementById("cue-badge-label");
+  const label = document.getElementById("um-widget-value");
   const tooltip = document.getElementById(TOOLTIP_ID);
+  const windows = normalizeWindows(data?.windows);
+  const max = windows.reduce((value, window) => Math.max(value, window.utilization ?? 0), 0);
+  const cls = severity(max);
 
-  if (error) {
-    label.textContent = "err";
-    label.style.color = COLORS.critical;
-    tooltip.innerHTML = `${tooltipHeader()}<div class="cue-msg" style="color:#c0392b">error: ${error}</div>`;
-    return;
-  }
-
-  if (!data || !data.windows.length) {
-    label.textContent = "--";
-    label.style.color = COLORS.muted;
-    tooltip.innerHTML = `${tooltipHeader()}<div class="cue-msg" style="color:#7a7068">no data — open claude.ai</div>`;
-    return;
-  }
-
-  const maxUtil = Math.max(...data.windows.map((w) => w.utilization ?? 0));
-  const color = colorForUtilization(maxUtil);
-  label.textContent = pct(maxUtil);
-  label.style.color = color;
-
-  tooltip.innerHTML = buildTooltipHTML(data);
+  label.textContent = windows.length ? pct(max) : "--";
+  label.className = `um-${cls}`;
+  tooltip.innerHTML = buildTooltip(data, error);
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 function injectStyles() {
-  let s = document.getElementById("cue-styles");
-  if (!s) {
-    s = document.createElement("style");
-    s.id = "cue-styles";
-    document.head.appendChild(s);
-}
-s.textContent = `
+  if (document.getElementById("usage-monitor-styles")) return;
+  const style = document.createElement("style");
+  style.id = "usage-monitor-styles";
+  style.textContent = `
+    #${WIDGET_ID}, #${TOOLTIP_ID} { --um-bg:#0d1117; --um-panel:#151b23; --um-line:#293442; --um-text:#e7edf3; --um-muted:#8c9aaa; --um-accent:#ff9274; --um-go:#78c7c3; --um-ok:#67d6a0; --um-warn:#f0b567; --um-critical:#ff7773; }
     #${WIDGET_ID} {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      z-index: 2147483647;
-      background: #f5f0eb;
-      color: #1a1a1a;
-      border: 1px solid #d6cfc8;
-      border-left: 3px solid #c96442;
-      padding: 5px 11px;
-      font: 500 11px/1.5 'JetBrains Mono','Fira Mono','Cascadia Code',monospace;
-      cursor: pointer;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.14);
-      user-select: none;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      position:fixed; right:20px; bottom:20px; z-index:2147483647; display:flex; align-items:center; gap:7px;
+      padding:8px 11px; border:1px solid var(--um-line); border-left:2px solid var(--um-accent); background:var(--um-bg); color:var(--um-text);
+      box-shadow:0 10px 30px rgba(0,0,0,.24); cursor:pointer; font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; user-select:none;
     }
-    #${WIDGET_ID}:hover { background: #ede8e2; }
-    .cue-badge-ps1 { color: #c96442; font-size: 12px; font-weight: 700; }
-    #cue-badge-label { font-weight: 700; }
-
+    #${WIDGET_ID}:hover { background:var(--um-panel); }
+    .um-widget-mark { color:var(--um-accent); font-size:13px; }
+    .um-widget-label { color:var(--um-muted); font-size:9px; font-weight:400; letter-spacing:.1em; text-transform:uppercase; }
+    .um-ok { color:var(--um-ok)!important; } .um-warn { color:var(--um-warn)!important; } .um-critical { color:var(--um-critical)!important; }
     #${TOOLTIP_ID} {
-      display: none;
-      position: fixed;
-      bottom: 56px;
-      right: 20px;
-      z-index: 2147483647;
-      background: #f5f0eb;
-      color: #1a1a1a;
-      border: 1px solid #d6cfc8;
-      border-left: 3px solid #c96442;
-      padding: 10px 12px;
-      font: 11px/1.6 'JetBrains Mono','Fira Mono','Cascadia Code',monospace;
-      width: 250px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+      position:fixed; right:20px; bottom:61px; z-index:2147483647; width:310px; padding:13px; border:1px solid var(--um-line); border-left:2px solid var(--um-accent);
+      background:var(--um-bg); color:var(--um-text); box-shadow:0 16px 45px rgba(0,0,0,.3); font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;
     }
-
-    .cue-header { font-size: 11px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
-    .cue-star { color: #c96442; font-weight: 700; }
-
-    .cue-line {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 3px;
-    }
-    .cue-row {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      margin-bottom: 8px;
-    }
-    .cue-label   { font-size: 10px; font-weight: 700; color: #1a1a1a; }
-    .cue-pct     { font-size: 11px; font-weight: 700; }
-    .cue-bar     { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
-    .cue-bracket { color: #7a7068; }
-    .cue-track   { flex: 1; height: 10px; background: #c4bbb1; overflow: hidden; }
-    .cue-fill    {
-      display: block; height: 100%; min-width: 2px;
-      transition: width .45s cubic-bezier(.4,0,.2,1);
-    }
-    .cue-fill.ok {
-      background: linear-gradient(180deg, #52b788, #2d6a4f);
-      box-shadow: 0 0 6px rgba(64,145,108,.6);
-    }
-    .cue-fill.warn {
-      background: linear-gradient(180deg, #f59e0b, #b45309);
-      box-shadow: 0 0 6px rgba(217,119,6,.6);
-    }
-    .cue-fill.critical {
-      background: linear-gradient(180deg, #ef5350, #c0392b);
-      box-shadow: 0 0 7px rgba(231,76,60,.65);
-    }
-    .cue-reset   { font-size: 10px; color: #7a7068; white-space: nowrap; }
-    .cue-extra   { padding-top: 7px; font-size: 10px; color: #7a7068; border-top: 1px dashed #d6cfc8; }
-    .cue-key     { color: #c96442; font-weight: 700; }
-    .cue-age     { margin-top: 5px; font-size: 9px; color: #b0a89e; text-align: right; }
-
-    /* ── dark theme ── */
-    #${WIDGET_ID}.cue-dark {
-      background: #0d0d0d;
-      color: #e8e8e8;
-      border-color: #2a2a2a;
-      border-left-color: #ff8c69;
-    }
-    #${WIDGET_ID}.cue-dark:hover { background: #161616; }
-    #${WIDGET_ID}.cue-dark .cue-badge-ps1 { color: #ff8c69; }
-
-    #${TOOLTIP_ID}.cue-dark {
-      background: #0d0d0d;
-      color: #e8e8e8;
-      border-color: #2a2a2a;
-      border-left-color: #ff8c69;
-    }
-    #${TOOLTIP_ID}.cue-dark .cue-header { color: #e8e8e8; }
-    #${TOOLTIP_ID}.cue-dark .cue-star { color: #ff8c69; }
-    #${TOOLTIP_ID}.cue-dark .cue-label { color: #e8e8e8; }
-    #${TOOLTIP_ID}.cue-dark .cue-bracket,
-    #${TOOLTIP_ID}.cue-dark .cue-reset { color: #888888; }
-    #${TOOLTIP_ID}.cue-dark .cue-track { background: #3a3a3a; }
-    #${TOOLTIP_ID}.cue-dark .cue-key { color: #ff8c69; }
-    #${TOOLTIP_ID}.cue-dark .cue-extra { color: #888888; border-top-color: #2a2a2a; }
+    #${TOOLTIP_ID}[hidden] { display:none; }
+    .um-head { display:flex; align-items:center; gap:7px; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--um-line); }
+    .um-head .um-mark { color:var(--um-accent); font-size:13px; } .um-head span:last-child { margin-left:auto; color:var(--um-muted); font-size:9px; }
+    .um-source { margin-bottom:11px; } .um-source:last-of-type { margin-bottom:0; }
+    .um-source-title { display:flex; align-items:center; gap:7px; margin-bottom:7px; color:var(--um-muted); font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+    .um-dot { display:inline-block; width:6px; height:6px; background:var(--um-accent); } .um-dot.um-opencode { background:var(--um-go); }
+    .um-window { padding:5px 0 8px; } .um-window-head,.um-window-foot { display:flex; justify-content:space-between; align-items:baseline; }
+    .um-window-head b { font-size:12px; } .um-window-foot { margin-top:5px; color:var(--um-muted); font-size:9px; }
+    .um-bar { height:7px; margin-top:6px; overflow:hidden; background:#26313d; } .um-fill { display:block; height:100%; min-width:2px; }
+    .um-fill.um-ok { background:var(--um-ok); } .um-fill.um-warn { background:var(--um-warn); } .um-fill.um-critical { background:var(--um-critical); }
+    .um-error { margin-top:8px; padding-top:8px; border-top:1px dashed var(--um-line); color:var(--um-critical); font-size:9px; }
+    .um-empty { color:var(--um-muted); font-size:10px; text-align:center; }
+    #${WIDGET_ID}.um-light, #${TOOLTIP_ID}.um-light { --um-bg:#fffdfa; --um-panel:#f4efe9; --um-line:#ded7cf; --um-text:#1c2329; --um-muted:#737b80; --um-accent:#c76548; --um-go:#287e7a; --um-ok:#287d61; --um-warn:#a6661c; --um-critical:#c84543; }
   `;
+  document.head.appendChild(style);
 }
-// ─── Init ────────────────────────────────────────────────────────────────────
 
-//to apply dark theme
 function applyTheme(theme) {
   const widget = document.getElementById(WIDGET_ID);
   const tooltip = document.getElementById(TOOLTIP_ID);
-  const isDark = theme === 'dark';
-  [widget, tooltip].forEach(el => {
-    if (!el) return;
-    el.classList.toggle('cue-dark', isDark);
-  });
-}
-
-function loadFromStorage() {
-  chrome.storage.local.get(["usageData", "usageError","theme"], ({ usageData, usageError, theme }) => {
-    updateWidget(usageData, usageError);
-	  applyTheme(theme);
-  });
+  const isLight = theme === "light" || (!theme && !window.matchMedia("(prefers-color-scheme: dark)").matches);
+  [widget, tooltip].forEach((element) => element?.classList.toggle("um-light", isLight));
 }
 
 injectStyles();
-loadFromStorage();
-
-// Apply on load
-//chrome.storage.local.get('theme', ({ theme }) => applyTheme(theme));
-
-// React to changes in real time
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.theme) {
-    applyTheme(changes.theme.newValue);
-  }
+chrome.storage.local.get(["usageData", "usageError", "theme"], ({ usageData, usageError, theme }) => {
+  updateWidget(usageData, usageError);
+  applyTheme(theme);
 });
 
-
-// Live updates from background
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === "usageUpdated") {
-    updateWidget(msg.data, null);
-  }
-});
-
-// Refresh display when storage changes (e.g. background updated while page open)
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
-  if ("usageData" in changes || "usageError" in changes) {
-    loadFromStorage();
-  }
+  if (changes.theme) applyTheme(changes.theme.newValue);
+  if (changes.usageData || changes.usageError) updateWidget(changes.usageData?.newValue, changes.usageError?.newValue);
+});
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "usageUpdated") updateWidget(message.data, null);
 });
