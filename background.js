@@ -96,21 +96,15 @@ function parseUsage(raw) {
  * Color shifts green → orange → red based on severity.
  */
 function updateBadge(data) {
-  let max = null;
-  if (data && data.windows) {
-    for (const w of data.windows) {
-      if (w.utilization != null && (max == null || w.utilization > max)) {
-        max = w.utilization;
-      }
-    }
-  }
+  const w = data?.windows?.find((x) => x.key === "five_hour");
+  const util = w?.utilization;
 
-  if (max == null) {
+  if (util == null) {
     chrome.action.setBadgeText({ text: "" });
     return;
   }
 
-  const pct = Math.round(max);
+  const pct = Math.round(util);
   const color = pct >= 90 ? "#c0392b" : pct >= 70 ? "#b45309" : "#2d6a4f";
   chrome.action.setBadgeBackgroundColor({ color });
   chrome.action.setBadgeText({ text: `${pct}%` });

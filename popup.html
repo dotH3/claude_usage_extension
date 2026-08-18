@@ -146,20 +146,37 @@
       border-top: 1px solid var(--border);
       margin-top: 2px;
     }
-    #status { font-size: 10px; color: var(--muted); }
+    #status {
+      font-size: 10px;
+      color: var(--muted);
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 8px;
+    }
+    #footer-actions {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
     #refresh-btn,
-    #theme-btn {
+    #theme-btn,
+    #status-link-btn {
       background: none;
       border: 1px solid var(--border);
       border-radius: 0;
       color: var(--muted);
       font: 10px/1.4 'JetBrains Mono', monospace;
-      padding: 3px 7px;
+      padding: 3px 6px;
+      white-space: nowrap;
       cursor: pointer;
       transition: border-color .15s, color .15s;
     }
     #refresh-btn:hover,
-    #theme-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #theme-btn:hover,
+    #status-link-btn:hover { border-color: var(--accent); color: var(--accent); }
     #refresh-btn:disabled { opacity: 0.4; cursor: default; }
 
     #content { padding: 6px 14px 4px; }
@@ -177,10 +194,11 @@
 
   <div id="footer">
     <span id="status"></span>
-    <div style="display:flex; gap:6px;">
-	    <button id="theme-btn">theme</button>
-            <button id="refresh-btn">⟳ refresh</button>
-	</div>
+    <div id="footer-actions">
+      <button id="status-link-btn">status</button>
+      <button id="theme-btn">theme</button>
+      <button id="refresh-btn">⟳ refresh</button>
+    </div>
   </div>
   <script src="popup.js"></script>
 </body>

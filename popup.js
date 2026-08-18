@@ -17,6 +17,9 @@ document.body.addEventListener('click', (e) => {
     const isDark = document.body.classList.contains('dark');
     chrome.storage.local.set({ theme: isDark ? 'dark' : 'light' });
   }
+  if (e.target.id === 'status-link-btn') {
+    chrome.tabs.create({ url: 'https://status.anthropic.com/' });
+  }
 });
 
 function clampedPct(n) {
